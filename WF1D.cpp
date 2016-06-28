@@ -18,60 +18,62 @@ int main( int argc, char* argv[] )
 	{
 		// Define flags
 		const int n = Input("--n","n",1000);
-		const std::string unlensed =
-			Input("--unlensed","unlensed",std::string(""));
-		const std::string lensed =
-			Input("--lensed","lensed",std::string(""));
+		const std::string raw =
+			Input("--raw","raw",std::string(""));
 		const std::string noise  =
 			Input("--noise","noise",std::string(""));
-		const std::string lense =
-			Input("--lense","lense",std::string(""));
+		const std::string transformation =
+			Input("--transformation","transformation",std::string(""));
+		const bool print_intermediate = 
+			Input("--print_intermediate","print_intermediate",true);
 		ProcessInput();
 
+		// Form the convolution matrix
+		DistMatrix<double> transcolmatrix(n,1);
+		Read(transcolmatrix, transformation);
+		vector<double> transvector(n);
+		DistMatrixToVector(transcolmatrix,transvector);
+		DistMatrix<double> transmatrix(n,n);
+		Circulant(transmatrix,transvector); // periodic convolution with lense vector
 
-		DistMatrix<double> lensecolmatrix(n,1);
-		Read(lensecolmatrix, lense);
-		vector<double> lensevector(n);
-		DistMatrixToVector(lensecolmatrix,lensevector);
-		DistMatrix<double> lensematrix(n,n);
-		Circulant(lensematrix,lensevector); // periodic convolution with lense vector
-
-		DistMatrix<double> S(n,n),N(n,1),X(n,n), H(n,n);
+		DistMatrix<double> N(n,1),X(n,n);
 		DistMatrix<double> xcolumnmatrix(n,1), noisecolumnmatrix(n,1); 
-		DistMatrix<double> scolumnmatrix(n,1), ycolumnmatrix(n,1),xhat(n,1);
-		vector<double> xvector(n),svector(n),noisevector(n);
-		Read( X, unlensed); // read unlensed data
+		DistMatrix<double> ycolumnmatrix(n,1),xhat(n,1);
+		vector<double> xvector(n),noisevector(n);
+
+		Read(X,raw); // read raw data
 		GetRow(X,0,xvector);
 		VectorToDistMatrix(xvector,xcolumnmatrix);
+		if (print_intermediate)
+		{
+			Print(xcolumnmatrix,"x");
+		}
 
-		// form ytest -- check if ytest = y from daniel's simulation      
-		DistMatrix<double> signal(n,1),ysimmatrix(n,1);
-		Gemv(NORMAL,Real(1),lensematrix,xcolumnmatrix,Real(0),signal);
-
-		Read( S, lensed); // read lensed 
-		GetRow(S,0,svector);
-		VectorToDistMatrix(svector,scolumnmatrix);
-
-		Read( H, noise); // read noise vector (in DistMatrix form)
-		GetRow(H,0,noisevector);
+		// form the observable      
+		DistMatrix<double> rawsignal(n,1);
+		Gemv(NORMAL,Real(1),transmatrix,xcolumnmatrix,Real(0),rawsignal);
+		if (print_intermediate)
+		{
+			Print(rawsignal,"h*x");
+		}
+		Read(N,noise); // read noise vector (in DistMatrix form)
+		GetRow(N,0,noisevector);
 		VectorToDistMatrix(noisevector,noisecolumnmatrix);
-	
-		ysimmatrix = signal;
-		ysimmatrix += noisecolumnmatrix;
+		// noisecolumnmatrix *= 1.0e4; // dialed up noise for example plot
+		if (print_intermediate)
+		{
+			Print(noisecolumnmatrix,"n");
+		}
 
-		// add signal + noise to get y
-		vector<double> yvector(n);
-		for (int k=0;k<n;k++)
-	  	{
-			yvector[k] = svector[k]+noisevector[k];
-	  	}
-		VectorToDistMatrix(yvector,ycolumnmatrix);
+		ycolumnmatrix = rawsignal;
+		ycolumnmatrix += noisecolumnmatrix;
 
-		// OVERWRITE ycolumnmatrix         
-		ycolumnmatrix = ysimmatrix;
-		Print(ycolumnmatrix,"y = Hx+n simulated");
+		if (print_intermediate)
+		{
+			Print(ycolumnmatrix,"y = h*x+n simulated");
+		}
 
-		WienerFilter1D(xcolumnmatrix,lensematrix,ycolumnmatrix,noisecolumnmatrix,xhat);
+		WienerFilter1D(xcolumnmatrix,transmatrix,ycolumnmatrix,noisecolumnmatrix,xhat);
 		Print(xhat, "result");
 	}
 	catch( std::exception& e ) { ReportException(e); }
