@@ -1,0 +1,19 @@
+# To help simplify including Elemental in external projects
+
+EL_INC = /scinet/bgq/Libraries/elemental-0.85-esslsmp/include
+EL_LIB = /scinet/bgq/Libraries/elemental-0.85-esslsmp/lib
+
+CC = mpicc
+CXX = mpicxx
+
+EL_LINK_FLAGS = -L${EL_LIB} -Wl,--allow-multiple-definition -Wl,-rpath  -Wl,/bgsys/drivers/V1R2M2/ppc64/comm/lib  -Wl,--start-group  -Wl,--end-group
+
+ALL_MATH_INC = -I${EL_INC} 
+ALL_MATH_LIBS = -lEl -L/scinet/bgq/compilers/gcc/4.8.1/powerpc64-bgq-linux/lib64/ -lstdc++ -lpmrrr -lElSuiteSparse  \
+                 -L/opt/ibmmath/essl/5.1/lib64 -lesslsmpbg  -L/opt/ibmcmp/xlsmp/bg/3.1/bglib64 -lxlsmp -L/scinet/bgq/Libraries/lapack/lib/ -lscalapack -llapack -lrefblas -L/opt/ibmcmp/xlf/bg/14.1/bglib64 -lxlf90_r -lxl -lxlfmath -lxlopt -L/scinet/bgq/compilers/gcc/4.8.1/powerpc64-bgq-linux/lib/ -lrt -ldl -lc -lm  /scinet/bgq/Libraries/elemental-0.85-esslsmp/lib/libparmetis.a /scinet/bgq/Libraries/elemental-0.85-esslsmp/lib/libmetis.a
+ALL_MPI_FLAGS =  -I/bgsys/drivers/V1R2M2/ppc64 -I/bgsys/drivers/V1R2M2/ppc64/comm/include -I/bgsys/drivers/V1R2M2/ppc64/spi/include -I/bgsys/drivers/V1R2M2/ppc64/spi/include/kernel/cnk -I/bgsys/drivers/V1R2M2/ppc64/comm/include 
+
+                       
+EL_COMPILE_FLAGS = -O3 -std=gnu++11  ${ALL_MATH_INC} ${ALL_MPI_FLAGS}
+EL_LIBS = ${ALL_MATH_LIBS}
+
